@@ -76,7 +76,7 @@ env:
 
 jobs:
   Compile:
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-latest
     permissions:
       issues: write
       pull-requests: write
