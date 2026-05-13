@@ -3,7 +3,7 @@
 #   Author: Hyy2001X                                      #
 ###########################################################
 
-name: zzz_Refresh API
+name: Refresh API
 
 on:
   repository_dispatch:

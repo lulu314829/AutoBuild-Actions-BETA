@@ -24,7 +24,7 @@ Firmware_Diy_Before() {
 	case "${OP_AUTHOR}/${OP_REPO}" in
 	coolsnowwolf/lede)
 		Version_File=package/lean/default-settings/files/zzz-default-settings
-		zzz_Default_Version="$(egrep -o "R[0-9]+\.[0-9]+\.[0-9]+" ${Version_File} | awk 'NR==1')"
+		zzz_Default_Version="$(egrep -o "R[0-9]+\.[0-9]+\.[0-9]+" ${Version_File})"
 		OP_VERSION="${zzz_Default_Version}-${Compile_Date}"
 	;;
 	immortalwrt/immortalwrt)
@@ -113,6 +113,7 @@ Fw_MFormat=${Fw_MFormat}
 FEEDS_CONF=${WORK}/feeds.conf.default
 Author_URL=${Author_URL}
 ENV_FILE=${GITHUB_ENV}
+
 EOF
 	source ${GITHUB_ENV}
 	echo -e "### VARIABLE LIST ###\n$(cat ${GITHUB_ENV})\n"
