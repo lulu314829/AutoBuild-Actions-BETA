@@ -1,24 +1,25 @@
 #!/bin/bash
-# AutoBuild Module by Hyy2001 <https://github.com/Hyy2001X/AutoBuild-Actions-BETA>
+# AutoBuild Module by Hyy2001 <https://github.com/Hyy2001X/AutoBuild-Actions>
 # AutoBuild Functions
 
-Firmware_Diy_Start() {
-	ECHO "[Firmware_Diy_Start] Starting ..."
+Firmware_Diy_Before() {
+	ECHO "[Firmware_Diy_Before] Starting ..."
 	WORK="${GITHUB_WORKSPACE}/openwrt"
-	CONFIG_TEMP="${WORK}/.config"
+	CONFIG_TEMP="${GITHUB_WORKSPACE}/openwrt/.config"
 	CD ${WORK}
-	OP_REPO="$(basename $(cut -d ':' -f1 <<< ${DEFAULT_SOURCE}))"
-	OP_AUTHOR="$(cut -d '/' -f1 <<< ${DEFAULT_SOURCE})"
-	OP_BRANCH="$(cut -d ':' -f2 <<< ${DEFAULT_SOURCE})"
 	Firmware_Diy_Core
 	[[ ${Short_Fw_Date} == true ]] && Compile_Date="$(cut -c1-8 <<< ${Compile_Date})"
-	Github="$(egrep -o 'https://github.com/.+' ${GITHUB_WORKSPACE}/.git/config | awk 'NR==1')"
-	[[ -z ${Author} || ${Author} == AUTO ]] && Author="$(cut -d "/" -f4 <<< ${Github} | awk 'NR==1')"
+	Github="$(grep "https://github.com/[a-zA-Z0-9]" ${GITHUB_WORKSPACE}/.git/config | cut -c8-100 | sed 's/^[ \t]*//g')"
+	[[ -z ${Author} || ${Author} == AUTO ]] && Author="$(cut -d "/" -f4 <<< ${Github})"
+	OP_AUTHOR="$(cut -d "/" -f4 <<< ${REPO_URL})"
+	OP_REPO="$(cut -d "/" -f5 <<< ${REPO_URL})"
+	OP_BRANCH="$(Get_Branch)"
 	if [[ ${OP_BRANCH} =~ (master|main) ]]
 	then
 		OP_VERSION_HEAD="R$(date +%y.%m)-"
 	else
-		OP_VERSION_HEAD="R$(egrep -o "[0-9]+.[0-9]+" <<< ${OP_BRANCH} | awk 'NR==1')-"
+		OP_BRANCH="$(egrep -o "[0-9]+.[0-9]+" <<< ${OP_BRANCH} | awk 'NR==1')"
+		OP_VERSION_HEAD="R${OP_BRANCH}-"
 	fi
 	case "${OP_AUTHOR}/${OP_REPO}" in
 	coolsnowwolf/lede)
@@ -26,7 +27,7 @@ Firmware_Diy_Start() {
 		zzz_Default_Version="$(egrep -o "R[0-9]+\.[0-9]+\.[0-9]+" ${Version_File})"
 		OP_VERSION="${zzz_Default_Version}-${Compile_Date}"
 	;;
-	immortalwrt/immortalwrt | padavanonly/immortalwrtARM | hanwckf/immortalwrt-mt798x)
+	immortalwrt/immortalwrt)
 		Version_File=package/base-files/files/etc/openwrt_release
 		OP_VERSION="${OP_VERSION_HEAD}${Compile_Date}"
 	;;
@@ -34,8 +35,7 @@ Firmware_Diy_Start() {
 		OP_VERSION="${OP_VERSION_HEAD}${Compile_Date}"
 	;;
 	esac
-	while [[ -z ${x86_Test} ]]
-	do
+	while [[ -z ${x86_Test} ]];do
 		x86_Test="$(egrep -o "CONFIG_TARGET.*DEVICE.*=y" ${CONFIG_TEMP} | sed -r 's/CONFIG_TARGET_(.*)_DEVICE_(.*)=y/\1/')"
 		[[ -n ${x86_Test} ]] && break
 		x86_Test="$(egrep -o "CONFIG_TARGET.*Generic=y" ${CONFIG_TEMP} | sed -r 's/CONFIG_TARGET_(.*)_Generic=y/\1/')"
@@ -47,9 +47,10 @@ Firmware_Diy_Start() {
 	else
 		TARGET_PROFILE="$(egrep -o "CONFIG_TARGET.*DEVICE.*=y" ${CONFIG_TEMP} | sed -r 's/.*DEVICE_(.*)=y/\1/')"
 	fi
+	[[ -z ${TARGET_PROFILE} ]] && ECHO "Unable to get [TARGET_PROFILE] !"
 	TARGET_BOARD="$(awk -F '[="]+' '/TARGET_BOARD/{print $2}' ${CONFIG_TEMP})"
 	TARGET_SUBTARGET="$(awk -F '[="]+' '/TARGET_SUBTARGET/{print $2}' ${CONFIG_TEMP})"
-	if [[ -z ${Fw_MFormat} || ${Fw_MFormat} == AUTO ]]
+	if [[ -z ${Fw_MFormat} || ${Fw_MFormat} =~ (false|AUTO) ]]
 	then
 		case "${TARGET_BOARD}" in
 		ramips | reltek | ath* | ipq* | bcm47xx | bmips | kirkwood | mediatek)
@@ -82,11 +83,14 @@ Firmware_Diy_Start() {
 			TARGET_FLAG="${Default_Flag}"
 		fi
 	fi
-	if [[ ! ${Tempoary_FLAG} =~ (\"|=|-|_|\.|\#|\|) && ${Tempoary_FLAG} =~ [a-zA-Z0-9] && ${Tempoary_FLAG} != AUTO ]]
+	if [[ ! ${Tempoary_FLAG} =~ (\"|=|-|_|\.|\#|\|) && ${Tempoary_FLAG} =~ [a-zA-Z0-9] ]]
 	then
 		TARGET_FLAG="${Tempoary_FLAG}"
 	fi
 	case "${TARGET_BOARD}" in
+	x86)
+		AutoBuild_Fw="AutoBuild-${OP_REPO}-${TARGET_PROFILE}-${OP_VERSION}-BOOT-${TARGET_FLAG}-SHA256.FORMAT"
+	;;
 	*)
 		AutoBuild_Fw="AutoBuild-${OP_REPO}-${TARGET_PROFILE}-${OP_VERSION}-${TARGET_FLAG}-SHA256.FORMAT"
 	;;
@@ -94,7 +98,6 @@ Firmware_Diy_Start() {
 	cat >> ${GITHUB_ENV} <<EOF
 WORK=${WORK}
 CONFIG_TEMP=${CONFIG_TEMP}
-CONFIG_FILE=${CONFIG_FILE}
 AutoBuild_Features=${AutoBuild_Features}
 x86_Full_Images=${x86_Full_Images}
 AutoBuild_Fw=${AutoBuild_Fw}
@@ -110,22 +113,11 @@ Fw_MFormat=${Fw_MFormat}
 FEEDS_CONF=${WORK}/feeds.conf.default
 Author_URL=${Author_URL}
 ENV_FILE=${GITHUB_ENV}
-Compile_Date=${Compile_Date}
 
-Author=${Author}
-Github=${Github}
-TARGET_PROFILE=${TARGET_PROFILE}
-TARGET_BOARD=${TARGET_BOARD}
-TARGET_SUBTARGET=${TARGET_SUBTARGET}
-TARGET_FLAG=${TARGET_FLAG}
-OP_VERSION=${OP_VERSION}
-OP_AUTHOR=${OP_AUTHOR}
-OP_REPO=${OP_REPO}
-OP_BRANCH=${OP_BRANCH}
 EOF
-	echo -e "### VARIABLE LIST ###\n$(cat ${GITHUB_ENV})\n"
 	source ${GITHUB_ENV}
-	ECHO "[Firmware_Diy_Start] Done"
+	echo -e "### VARIABLE LIST ###\n$(cat ${GITHUB_ENV})\n"
+	ECHO "[Firmware_Diy_Before] Done"
 }
 
 Firmware_Diy_Main() {
@@ -134,10 +126,11 @@ Firmware_Diy_Main() {
 	chmod 777 -R ${Scripts} ${CustomFiles}
 	if [[ ${AutoBuild_Features} == true ]]
 	then
-		AddPackage other Hyy2001X AutoBuild-Packages master
+		AddPackage git other AutoBuild-Packages Hyy2001X master
 		echo -e "\nCONFIG_PACKAGE_luci-app-autoupdate=y" >> ${CONFIG_FILE}
-		AutoUpdate_Version=$(awk -F '=' '/Version/{print $2}' $(PKG_Finder d package AutoBuild-Packages)/autoupdate/files/bin/autoupdate | awk 'NR==1')
-		cat >> $(PKG_Finder d package AutoBuild-Packages)/autoupdate/files/etc/autoupdate/default <<EOF
+		for i in ${GITHUB_ENV} $(PKG_Finder d package AutoBuild-Packages)/autoupdate/files/etc/autoupdate/default
+		do
+			cat >> ${i} <<EOF
 Author=${Author}
 Github=${Github}
 TARGET_PROFILE=${TARGET_PROFILE}
@@ -150,6 +143,8 @@ OP_REPO=${OP_REPO}
 OP_BRANCH=${OP_BRANCH}
 
 EOF
+		done ; unset i
+		AutoUpdate_Version=$(awk -F '=' '/Version/{print $2}' $(PKG_Finder d package AutoBuild-Packages)/autoupdate/files/bin/autoupdate | awk 'NR==1')
 		Copy ${CustomFiles}/Depends/tools ${BASE_FILES}/bin
 		Copy ${CustomFiles}/Depends/profile ${BASE_FILES}/etc
 		Copy ${CustomFiles}/Depends/base-files-essential ${BASE_FILES}/lib/upgrade/keep.d
@@ -164,16 +159,13 @@ EOF
 				sed -i "s?${zzz_Default_Version}?${zzz_Default_Version} @ ${Author} [${Display_Date}]?g" ${Version_File}
 			fi
 		;;
-		immortalwrt/immortalwrt | padavanonly/immortalwrtARM | hanwckf/immortalwrt-mt798x)
-			Copy ${CustomFiles}/Depends/openwrt_release_immortalwrt ${BASE_FILES}/etc openwrt_release
-			Copy ${CustomFiles}/Depends/os-release_immortalwrt ${BASE_FILES}/usr/lib os-release
+		immortalwrt/immortalwrt)
+			Copy ${CustomFiles}/Depends/openwrt_release_${OP_AUTHOR} ${BASE_FILES}/etc openwrt_release
 			if [[ -n ${TARGET_FLAG} ]]
 			then
 				sed -i "s?ImmortalWrt?ImmortalWrt ${TARGET_FLAG} @ ${Author} [${Display_Date}]?g" ${Version_File}
-				sed -i "s?ImmortalWrt?ImmortalWrt ${TARGET_FLAG} @ ${Author} [${Display_Date}]?g" ${BASE_FILES}/usr/lib/os-release
 			else
 				sed -i "s?ImmortalWrt?ImmortalWrt @ ${Author} [${Display_Date}]?g" ${Version_File}
-				sed -i "s?ImmortalWrt?ImmortalWrt @ ${Author} [${Display_Date}]?g" ${BASE_FILES}/usr/lib/os-release
 			fi
 		;;
 		esac
@@ -189,6 +181,9 @@ EOF
 			fi
 		fi
 		case "${OP_AUTHOR}/${OP_REPO}" in
+		immortalwrt/immortalwrt)
+			Copy ${CustomFiles}/Depends/banner $(PKG_Finder d package default-settings)/files openwrt_banner
+		;;
 		*)
 			Copy ${CustomFiles}/Depends/banner ${BASE_FILES}/etc
 		;;
@@ -208,7 +203,6 @@ EOF
 			sed -i "s/${Old_IP}/${Default_IP}/g" ${BASE_FILES}/bin/config_generate
 		fi
 	fi
- 	echo -e "### VARIABLE LIST ###\n$(cat ${GITHUB_ENV})\n"
 	ECHO "[Firmware_Diy_Main] Done"
 }
 
@@ -225,98 +219,66 @@ CONFIG_KERNEL_BUILD_USER="${Author}"
 CONFIG_KERNEL_BUILD_DOMAIN="${Author_URL}"
 EOF
 		fi
-		if [[ ${AutoBuild_Features_Patch} == true ]]
-		then
-			case "${OP_AUTHOR}/${OP_REPO}:${OP_BRANCH}" in
-			coolsnowwolf/lede:master)
-				Patch_Path=${CustomFiles}/Patches/coolsnowwolf-lede
-			;;
-			immortalwrt/immortalwrt*)
-				Patch_Path=${CustomFiles}/Patches/immortalwrt-immortalwrt
-			;;
-			lienol/openwrt*)
-				Patch_Path=${CustomFiles}/Patches/lienol-openwrt
-			;;
-			openwrt/openwrt*)
-				Patch_Path=${CustomFiles}/Patches/openwrt-openwrt
-			;;
-			padavanonly/immortalwrtARM*)
-				Patch_Path=${CustomFiles}/Patches/padavanonly-immortalwrtARM
-			;;
-			hanwckf/immortalwrt-mt798x*)
-				Patch_Path=${CustomFiles}/Patches/immortalwrt-mt798x
-			;;
-			esac
-			if [[ -d ${Patch_Path} ]]
+		for i in $(du -ah ${CustomFiles}/Patches | awk '{print $2}' | sort | uniq)
+		do
+			if [[ -f $i ]]
 			then
-				for i in $(du -ah ${Patch_Path} | awk '{print $2}' | sort | uniq)
-				do
-					if [[ -f $i ]]
-					then
-						if [[ $i =~ "-generic.patch" ]]
-						then
-							ECHO "Found generic patch file: $i"
-							patch < $i -p1 -d ${WORK}
-						elif [[ $i =~ "-${TARGET_BOARD}.patch" ]]
-						then
-							ECHO "Found board ${TARGET_BOARD} patch file: $i"
-							patch < $i -p1 -d ${WORK}
-						elif [[ $i =~ "-${TARGET_PROFILE}.patch" ]]
-						then
-							ECHO "Found profile ${TARGET_PROFILE} patch file: $i"
-							patch < $i -p1 -d ${WORK}
-						fi
-					fi
-				done ; unset i
+				if [[ $i =~ "-generic.patch" ]]
+				then
+					ECHO "Found generic patch file: $i"
+					patch < $i -p1 -d ${WORK}
+				elif [[ $i =~ "-${TARGET_BOARD}.patch" ]]
+				then
+					ECHO "Found board ${TARGET_BOARD} patch file: $i"
+					patch < $i -p1 -d ${WORK}
+				elif [[ $i =~ "-${TARGET_PROFILE}.patch" ]]
+				then
+					ECHO "Found profile ${TARGET_PROFILE} patch file: $i"
+					patch < $i -p1 -d ${WORK}
+				fi
 			fi
-		fi
-		if [[ ${AutoBuild_Features_Kconfig} == true ]]
-		then
-			Kconfig_Path=${CustomFiles}/Kconfig
-			Tree=${WORK}/target/linux
-			if [[ -d ${Kconfig_Path} ]]
+		done ; unset i
+		Kconfig_Path=${CustomFiles}/Kconfig
+		Tree=${WORK}/target/linux
+		cd ${Kconfig_Path}
+		for i in $(du -a | awk '{print $2}' | busybox sed -r 's/.\//\1/' | grep -wv '^.' | sort | uniq)
+		do
+			if [[ -d $i && $(ls -1 $i 2> /dev/null) ]]
 			then
-				cd ${Kconfig_Path}
-				for i in $(du -a | awk '{print $2}' | busybox sed -r 's/.\//\1/' | grep -wv '^.' | sort | uniq)
-				do
-					if [[ -d $i && $(ls -1 $i 2> /dev/null) ]]
+				:
+			elif [[ -e $i ]]
+			then
+				_Kconfig=$(dirname $i)
+				__Kconfig=$(basename $i)
+				ECHO " - Found Kconfig_file: ${__Kconfig} at ${_Kconfig}"
+				if [[ -e ${Tree}/$i && ${__Kconfig} != config-generic ]]
+				then
+					ECHO " -- Found Tree: ${Tree}/$i, refreshing ${Tree}/$i ..."
+					echo >> ${Tree}/$i
+					if [[ $? == 0 ]]
 					then
-						:
-					elif [[ -e $i ]]
-					then
-						_Kconfig=$(dirname $i)
-						__Kconfig=$(basename $i)
-						ECHO " - Found Kconfig_file: ${__Kconfig} at ${_Kconfig}"
-						if [[ -e ${Tree}/$i && ${__Kconfig} != config-generic ]]
-						then
-							ECHO " -- Found Tree: ${Tree}/$i, refreshing ${Tree}/$i ..."
-							echo >> ${Tree}/$i
-							if [[ $? == 0 ]]
-							then
-								cat $i >> ${Tree}/$i
-								ECHO " --- Done"
-							else
-								ECHO " --- Failed to write new content ..."
-							fi
-						elif [[ ${__Kconfig} == config-generic ]]
-						then
-							for j in $(ls -1 ${Tree}/${_Kconfig} | egrep "config-[0-9]+")
-							do
-								ECHO " -- Generic Kconfig_file, refreshing ${Tree}/${_Kconfig}/$j ..."
-								echo >> ${Tree}/${_Kconfig}/$j
-								if [[ $? == 0 ]]
-								then
-									cat $i >> ${Tree}/${_Kconfig}/$j
-									ECHO " --- Done"
-								else
-									ECHO " --- Failed to write new content ..."
-								fi
-							done
-						fi
+						cat $i >> ${Tree}/$i
+						ECHO " --- Done"
+					else
+						ECHO " --- Failed to write new content ..."
 					fi
-				done ; unset i
+				elif [[ ${__Kconfig} == config-generic ]]
+				then
+					for j in $(ls -1 ${Tree}/${_Kconfig} | egrep "config-[0-9]+")
+					do
+						ECHO " -- Generic Kconfig_file, refreshing ${Tree}/${_Kconfig}/$j ..."
+						echo >> ${Tree}/${_Kconfig}/$j
+						if [[ $? == 0 ]]
+						then
+							cat $i >> ${Tree}/${_Kconfig}/$j
+							ECHO " --- Done"
+						else
+							ECHO " --- Failed to write new content ..."
+						fi
+					done
+				fi
 			fi
-		fi
+		done ; unset i
 	fi
 	CD ${WORK}
 	ECHO "[Firmware_Diy_Other] Done"
@@ -324,16 +286,12 @@ EOF
 
 Firmware_Diy_End() {
 	ECHO "[Firmware_Diy_End] Starting ..."
-	source ${GITHUB_ENV}
 	ECHO "[$(date "+%H:%M:%S")] Actions Avaliable: $(df -h | grep "/dev/root" | awk '{printf $4}')"
 	cd ${WORK}
-	echo -e "### FIRMWARE OUTPUT ###"
-	du -ah bin/targets | egrep -v "${Regex_Skip}" | grep -v 'ipk'
 	MKDIR ${WORK}/bin/Firmware
 	Fw_Path="${WORK}/bin/targets/${TARGET_BOARD}/${TARGET_SUBTARGET}"
-	cd "${Fw_Path}"
-	echo -e "### SHA256SUMS ###"
-	cat sha256sums
+	cd ${Fw_Path}
+	echo -e "### FIRMWARE OUTPUT ###\n$(ls -1)\n"
 	case "${TARGET_BOARD}" in
 	x86)
 		if [[ ${x86_Full_Images} == true ]]
@@ -371,29 +329,22 @@ Process_Fw_Core() {
 	Fw_Format=$1
 	shift
 	while [[ $1 ]];do
+		Fw=${AutoBuild_Fw}
 		case "${TARGET_BOARD}" in
 		x86)
-			if [[ $1 =~ efi ]]
-			then
-				Fw=${AutoBuild_Fw/SHA256/$(Get_sha256 $1)}
-				Fw=${Fw/FORMAT/${Fw_Format}}
-				if [[ -f $1 ]]
-				then
-					ECHO "Move x86 image [$1] to [${Fw}] ..."
-					mv -f $1 ${Fw}
-				fi
-			fi
-		;;
-		*)
-			Fw=${AutoBuild_Fw/SHA256/$(Get_sha256 $1)}
-			Fw=${Fw/FORMAT/${Fw_Format}}
-			if [[ -f $1 ]]
-			then
-				ECHO "Move generic firmware [$1] to [${Fw}] ..."
-				mv -f $1 ${Fw}
-			fi
+			[[ $1 =~ efi ]] && Fw_Boot=UEFI || Fw_Boot=BIOS
+			Fw=${Fw/BOOT/${Fw_Boot}}
 		;;
 		esac
+		Fw=${Fw/SHA256/$(Get_sha256 $1)}
+		Fw=${Fw/FORMAT/${Fw_Format}}
+		if [[ -f $1 ]]
+		then
+			ECHO "Moving [$1] to [${Fw}] ..."
+			mv -f $1 ${Fw}
+		else
+			ECHO "Failed to copy [${Fw}] ..."
+		fi
 		shift
 	done
 }
@@ -430,6 +381,12 @@ Get_sha256() {
 	List_sha256 | grep $1 | awk '{print $1}' | cut -c1-5
 }
 
+Get_Branch() {
+    git -C $(pwd) rev-parse --abbrev-ref HEAD | grep -v HEAD || \
+    git -C $(pwd) describe --exact-match HEAD || \
+    git -C $(pwd) rev-parse HEAD
+}
+
 gz_Check() {
 	[[ $(cat ${CONFIG_TEMP}) =~ CONFIG_TARGET_IMAGES_GZIP=y ]] && {
 		echo img.gz
@@ -444,7 +401,7 @@ PKG_Finder() {
 	local Result
 	if [[ $# -ne 3 ]]
 	then
-		ECHO "Syntax error: [$#] [$*]"
+		ECHO "Usage: PKG_Finder <f | d> Search_Path Target_Name/Target_Path"
 		return 0
 	fi
 	Result=$(find $2 -name $3 -type $1 -exec echo {} \; 2> /dev/null)
@@ -457,22 +414,10 @@ CD() {
 }
 
 MKDIR() {
-	while [[ $1 ]]
-	do
-		if [[ ! -d $(dirname $1) ]]
-		then
-			mkdir -p $(dirname $1)
-			if [[ $? != 0 ]]
-			then
-				ECHO "Failed to create parent directory: [$(dirname $1)] ..."
-				return 0
-			fi
-		fi
+	while [[ $1 ]];do
 		if [[ ! -d $1 ]]
 		then
-			mkdir -p $1 || ECHO "Failed to create sub directory: [$1] ..."
-		else
-			ECHO "Create directory: [$(dirname $1)] ..."
+			mkdir -p $1 || ECHO "Failed to create target directory: [$1] ..."
 		fi
 		shift
 	done
@@ -484,25 +429,51 @@ AddPackage() {
 		ECHO "Syntax error: [$#] [$*]"
 		return 0
 	fi
-	PKG_DIR=$1
+	PKG_PROTO=$1
+	case "${PKG_PROTO}" in
+	git | svn)
+		:
+	;;
+	*)
+		ECHO "Unknown content: ${PKG_PROTO}"
+		return 0
+	;;
+	esac
+	PKG_DIR=$2
 	[[ ! ${PKG_DIR} =~ ${GITHUB_WORKSPACE} ]] && PKG_DIR=package/${PKG_DIR}
-	REPO_URL="https://github.com/$2/$3"
 	PKG_NAME=$3
-	REPO_BRANCH=$4
+	REPO_URL="https://github.com/$4"
+	REPO_BRANCH=$5
+	[[ ${REPO_URL} =~ "${OP_AUTHOR}/${OP_REPO}" ]] && return 0
 
 	MKDIR ${PKG_DIR}
 	if [[ -d ${PKG_DIR}/${PKG_NAME} ]]
 	then
 		ECHO "Removing old package: [${PKG_NAME}] ..."
-		rm -rf "${PKG_DIR}/${PKG_NAME}"
+		rm -rf ${PKG_DIR}/${PKG_NAME}
 	fi
-
-	if [[ -z ${REPO_BRANCH} ]]
+	ECHO "Checking out package [${PKG_NAME}] to ${PKG_DIR} ..."
+	case "${PKG_PROTO}" in
+	git)
+		if [[ -z ${REPO_BRANCH} ]]
+		then
+			ECHO "WARNING: Syntax missing <branch> ,using default branch: [master]"
+			REPO_BRANCH=master
+		fi
+		PKG_URL="$(echo ${REPO_URL}/${PKG_NAME} | sed s/[[:space:]]//g)"
+		git clone -b ${REPO_BRANCH} ${PKG_URL} ${PKG_NAME} > /dev/null 2>&1
+	;;
+	svn)
+		svn checkout ${REPO_URL}/${PKG_NAME} ${PKG_NAME} > /dev/null 2>&1
+	;;
+	esac
+	if [[ -f ${PKG_NAME}/Makefile || -n $(ls -A ${PKG_NAME}) ]]
 	then
-		REPO_BRANCH=main
+		mv -f "${PKG_NAME}" "${PKG_DIR}"
+		[[ $? == 0 ]] && ECHO "Done"
+	else
+		ECHO "Failed to download package ${PKG_NAME} ..."
 	fi
-	ECHO "Downloading package [${PKG_NAME}] to ${PKG_DIR} ..."
-	git clone --depth 1 -b ${REPO_BRANCH} ${REPO_URL} ${PKG_DIR}/${PKG_NAME}/ > /dev/null 2>&1
 }
 
 Copy() {
@@ -519,145 +490,11 @@ Copy() {
 	MKDIR $2
 	if [[ -z $3 ]]
 	then
-		ECHO "[C] Copying $(basename $1) to $2 ..."
+		ECHO "[C] Copying $1 to $2 ..."
 		cp -a $1 $2
 	else
-		ECHO "[R] Copying $(basename $1) to $2 [$3] ..."
+		ECHO "[R] Copying $1 to $2/$3 ..."
 		cp -a $1 $2/$3
 	fi
 	[[ $? == 0 ]] && ECHO "Done"
-}
-
-ReleaseDL() {
-	if [[ $# -lt 3 ]]
-	then
-		ECHO "Syntax error: [$#] [$*]"
-		return 0
-	fi
-	
-	API_URL=$1
-	FILE_NAME=$2
-	TARGET_FILE_PATH=$3
-	TARGET_FILE_RENAME=$4
-	API_FILE=/tmp/API.json
-	
-	if [[ ! -d ${TARGET_FILE_PATH} ]]
-	then
-		MKDIR "${TARGET_FILE_PATH}"
-	fi
-	
-	rm -f ${API_FILE}
-	wget --quiet --no-check-certificate --tries 5 --timeout 20 $1 -O ${API_FILE}
-	if [[ $? != 0 || ! -f ${API_FILE} ]]
-	then
-		ECHO "Failed to download API ${PKG_NAME} ..."
-	fi
-	for i in $(seq 0 $(cat ${API_FILE} | jq ".assets | length" 2> /dev/null))
-	do
-		eval name=$(cat ${API_FILE} | jq ".assets[${i}].name" 2> /dev/null)
-		[[ ${name} == null ]] && continue
-		case "$name" in
-		"${FILE_NAME}")
-			eval browser_download_url=$(cat ${API_FILE} | jq ".assets[${i}].browser_download_url" 2> /dev/null)
-			if [[ ${browser_download_url} || ${browser_download_url} != null ]]
-			then
-				# echo $browser_download_url
-				[[ ${TARGET_FILE_RENAME} ]] && _FILE=${TARGET_FILE_RENAME} || _FILE=${FILE_NAME}
-    				ECHO "Downloading link ${browser_download_url} ..."
-				wget --quiet --no-check-certificate \
-					--tries 5 --timeout 20 \
-					${browser_download_url} \
-					-O ${TARGET_FILE_PATH}/${_FILE}
-				if [[ $? != 0 || ! -f ${TARGET_FILE_PATH}/${_FILE} ]]
-				then
-					ECHO "Failed to download ${PKG_NAME} ..."
-				else
-					ECHO "API: ${API_URL} ; ${FILE_NAME} ; ${_FILE} ; $(du -h ${TARGET_FILE_PATH}/${_FILE})"
-					chmod 777 ${TARGET_FILE_PATH}/${_FILE}
-				fi
-			fi
-		;;
-		esac
-	done
-	rm -f ${API_FILE}
-}
-
-ClashDL() {
-	TMP_PATH=/opt/OpenClash
-	
-	PLATFORM=$1
-	CORE_TYPE=$2
-	
-	if [[ ! -n $(ls -1 $TMP_PATH 2> /dev/null) ]]
-	then
-		git clone -b core --depth=1 https://github.com/vernesong/OpenClash $TMP_PATH
-	fi
-	
-	case $CORE_TYPE in
-	dev | meta)
-		CORE_PATH=$TMP_PATH/dev/$CORE_TYPE
-	;;
-	premium | tun)
-		CORE_PATH=$TMP_PATH/dev/premium
-	;;
-	esac
-	
-	CORE=(
-		$(ls -1 $CORE_PATH | grep "clash-linux-$PLATFORM" | tr '\n' ' ')
-	)
-	
-	case $CORE_TYPE in
-	dev | meta)
-		IS_CORE="clash-linux-${PLATFORM}.tar.gz"
-		if [[ -f ${CORE_PATH}/${IS_CORE} ]]
-		then
-			TARGET_CORE=${IS_CORE}
-		fi
-	;;
-	*)
-		IS_CORE=$(ls -1 $CORE_PATH | egrep -o "clash-linux-${PLATFORM}-[0-9]{4}\.[0-9]{2}\.[0-9]{2}-[0-9]{2}-[A-Za-z0-9]+\.gz")
-		if [[ ${IS_CORE} && -f ${CORE_PATH}/${IS_CORE} ]]
-		then
-			TARGET_CORE=${IS_CORE}
-		fi
-	esac
-	
-	if [[ ! $TARGET_CORE ]]
-	then
-		ECHO "$PLATFORM $CORE_TYPE Not found"
-		for i in meta
-		do
-			cd $TMP_PATH/dev/$i
-			SUP_PLATDORM=$(ls -1 2> /dev/null | sed -r 's/clash-linux-(.*).tar.gz/\1/')
-			ECHO "CORE Supported platform: \n$SUP_PLATDORM"
-			cd - > /dev/null
-		done
-		return
-	else
-		ECHO "TARGET_CORE: $TARGET_CORE"
-	fi
-	MKDIR ${BASE_FILES}/etc/openclash/core
-	case $CORE_TYPE in
-	dev | meta)
-		tar -xvzf $CORE_PATH/$TARGET_CORE -C ${TMP_PATH}
-		if [[ $CORE_TYPE == dev ]]
-		then
-			chmod 777 ${TMP_PATH}/clash
-			mv -f ${TMP_PATH}/clash ${BASE_FILES}/etc/openclash/core/clash
-			ECHO "CORE Size: $(du -h ${BASE_FILES}/etc/openclash/core/clash)"
-		fi
-		if [[ $CORE_TYPE == meta ]]
-		then
-			chmod 777 ${TMP_PATH}/clash
-			mv -f ${TMP_PATH}/clash ${BASE_FILES}/etc/openclash/core/clash_meta
-			ECHO "CORE Size: $(du -h ${BASE_FILES}/etc/openclash/core/clash_meta)"
-		fi
-	;;
-	premium | tun)
-		gzip -dk -c $CORE_PATH/$TARGET_CORE > ${TMP_PATH}/clash_tun
-		chmod 777 ${TMP_PATH}/clash_tun
-		mv -f ${TMP_PATH}/clash_tun ${BASE_FILES}/etc/openclash/core/clash_tun
-		ECHO "CORE Size: $(du -h ${BASE_FILES}/etc/openclash/core/clash_tun)"
-	;;
-	esac
 }
