@@ -24,7 +24,7 @@ Firmware_Diy_Before() {
 	case "${OP_AUTHOR}/${OP_REPO}" in
 	coolsnowwolf/lede)
 		Version_File=package/lean/default-settings/files/zzz-default-settings
-		zzz_Default_Version="$(egrep -o "R[0-9]+\.[0-9]+\.[0-9]+" ${Version_File})"
+		zzz_Default_Version="$(egrep -o "R[0-9]+\.[0-9]+\.[0-9]+" ${Version_File} | awk 'NR==1')"
 		OP_VERSION="${zzz_Default_Version}-${Compile_Date}"
 	;;
 	immortalwrt/immortalwrt)
@@ -113,7 +113,6 @@ Fw_MFormat=${Fw_MFormat}
 FEEDS_CONF=${WORK}/feeds.conf.default
 Author_URL=${Author_URL}
 ENV_FILE=${GITHUB_ENV}
-
 EOF
 	source ${GITHUB_ENV}
 	echo -e "### VARIABLE LIST ###\n$(cat ${GITHUB_ENV})\n"
@@ -461,10 +460,10 @@ AddPackage() {
 			REPO_BRANCH=master
 		fi
 		PKG_URL="$(echo ${REPO_URL}/${PKG_NAME} | sed s/[[:space:]]//g)"
-		git clone -b ${REPO_BRANCH} ${PKG_URL} ${PKG_NAME} > /dev/null 2>&1
+		git clone -b ${REPO_BRANCH} ${PKG_URL} ${PKG_NAME} > /dev/null 2>&1 || true
 	;;
 	svn)
-		svn checkout ${REPO_URL}/${PKG_NAME} ${PKG_NAME} > /dev/null 2>&1
+		svn checkout ${REPO_URL}/${PKG_NAME} ${PKG_NAME} > /dev/null 2>&1 || true
 	;;
 	esac
 	if [[ -f ${PKG_NAME}/Makefile || -n $(ls -A ${PKG_NAME}) ]]

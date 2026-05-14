@@ -111,9 +111,13 @@ jobs:
 
     - name: Clone Openwrt Source Code
       run: |
-        git clone -b $REPO_BRANCH $REPO_URL openwrt
+        git config --global http.postBuffer 524288000
+        git config --global http.lowSpeedLimit 0
+        git config --global http.lowSpeedTime 999999
+        git clone -b $REPO_BRANCH ${REPO_URL/https:\/\/github.com/https:\/\/ghproxy.com\/https:\/\/github.com} openwrt || git clone -b $REPO_BRANCH $REPO_URL openwrt
         ln -sf /workdir/openwrt $GITHUB_WORKSPACE/openwrt
         cd openwrt
+        sed -i 's|https://github.com|https://ghproxy.com/https://github.com|g' feeds.conf.default 2>/dev/null || true
         ./scripts/feeds update -a
         ./scripts/feeds install -a
 
