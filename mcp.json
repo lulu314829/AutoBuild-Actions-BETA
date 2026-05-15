@@ -1,0 +1,179 @@
+{
+  "mcpServers": {
+    "yudao-mcp-server": {
+      "command": "python",
+      "args": [
+        "E:/code/yudao-codegen-agent-main/yudao_mcp_server.py"
+      ],
+      "env": {},
+      "description": "芋道源码服务端接口服务",
+      "tools": [
+        {
+          "name": "codegen_create_list",
+          "description": "导入数据表到代码生成器",
+          "inputSchema": {
+            "type": "object",
+            "properties": {
+              "tableName": {
+                "type": "string",
+                "description": "要导入的数据表名称"
+              }
+            },
+            "required": [
+              "tableName"
+            ]
+          }
+        },
+        {
+          "name": "codegen_download",
+          "description": "下载生成的代码",
+          "inputSchema": {
+            "type": "object",
+            "properties": {
+              "tableId": {
+                "type": "integer",
+                "description": "表编号"
+              },
+              "className": {
+                "type": "string",
+                "description": "类名"
+              },
+              "downloadPath": {
+                "type": "string",
+                "description": "下载路径，默认为当前目录"
+              }
+            },
+            "required": [
+              "tableId",
+              "className"
+            ]
+          }
+        }
+      ]
+    },
+    "file-copy-mcp-server": {
+      "command": "python",
+      "args": [
+        "E:/code/yudao-codegen-agent-main/file_copy_mcp_server.py"
+      ],
+      "env": {},
+      "description": "文件复制服务",
+      "tools": [
+        {
+          "name": "copy_directory",
+          "description": "复制目录及其所有内容",
+          "inputSchema": {
+            "type": "object",
+            "properties": {
+              "sourceDir": {
+                "type": "string",
+                "description": "源目录绝对路径"
+              },
+              "targetDir": {
+                "type": "string",
+                "description": "目标目录绝对路径"
+              },
+              "overwrite": {
+                "type": "boolean",
+                "description": "是否覆盖已存在的文件",
+                "default": false
+              }
+            },
+            "required": [
+              "sourceDir",
+              "targetDir"
+            ]
+          }
+        }
+      ]
+    },
+    "MySQL Server": {
+      "command": "mysql_mcp_server",
+      "args": [],
+      "env": {
+        "MYSQL_DATABASE": "ruoyi-vue-pro",
+        "MYSQL_HOST": "localhost",
+        "MYSQL_PASSWORD": "123456",
+        "MYSQL_PORT": "3306",
+        "MYSQL_USER": "root"
+      }
+    },
+    "Filesystem": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@modelcontextprotocol/server-filesystem",
+        "E:/code/WXpage/yudao-boot-mini-master",
+        "E:/code/WXpage/yudao-ui-admin-vue3-master",
+        "E:/code/WXpage/sliver",
+        "E:/code"
+      ],
+      "env": {}
+    },
+    "Pandoc": {
+      "command": "uvx",
+      "args": [
+        "mcp-pandoc"
+      ],
+      "env": {},
+      "fromGalleryId": "vivekVells.mcp-pandoc",
+      "disabled": true
+    },
+    "zai-mcp-server": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@z_ai/mcp-server"
+      ],
+      "env": {
+        "Z_AI_API_KEY": "613b55c6e7b24c65ae4bbd9f723c51c2.A1QKfxAJBAmtkiR8",
+        "Z_AI_MODE": "ZHIPU"
+      }
+    },
+    "web-reader": {
+      "url": "https://open.bigmodel.cn/api/mcp/web_reader/mcp",
+      "headers": {
+        "Authorization": "613b55c6e7b24c65ae4bbd9f723c51c2.A1QKfxAJBAmtkiR8"
+      },
+      "disabled": true
+    },
+    "web-search-prime": {
+      "url": "https://open.bigmodel.cn/api/mcp/web_search_prime/mcp",
+      "headers": {
+        "Authorization": "613b55c6e7b24c65ae4bbd9f723c51c2.A1QKfxAJBAmtkiR8"
+      },
+      "disabled": true
+    },
+    "zread": {
+      "url": "https://open.bigmodel.cn/api/mcp/zread/mcp",
+      "headers": {
+        "Authorization": "613b55c6e7b24c65ae4bbd9f723c51c2.A1QKfxAJBAmtkiR8"
+      },
+      "disabled": true
+    },
+    "Chrome DevTools MCP": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "chrome-devtools-mcp@latest"
+      ],
+      "env": {},
+      "fromGalleryId": "byted-mcp.chrome-devtools-mcp"
+    },
+    "ssh-mcp-server": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@fangjunjie/ssh-mcp-server",
+        "--host",
+        "124.222.68.140",
+        "--port",
+        "2222",
+        "--username",
+        "kxk",
+        "--password",
+        "kxk105021"
+      ]
+    }
+  }
+}

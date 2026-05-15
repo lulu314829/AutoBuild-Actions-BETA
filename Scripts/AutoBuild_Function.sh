@@ -24,7 +24,7 @@ Firmware_Diy_Before() {
 	case "${OP_AUTHOR}/${OP_REPO}" in
 	coolsnowwolf/lede)
 		Version_File=package/lean/default-settings/files/zzz-default-settings
-		zzz_Default_Version="$(egrep -o "R[0-9]+\.[0-9]+\.[0-9]+" ${Version_File} | awk 'NR==1')"
+		zzz_Default_Version="$(egrep -o "R[0-9]+\.[0-9]+\.[0-9]+" ${Version_File})"
 		OP_VERSION="${zzz_Default_Version}-${Compile_Date}"
 	;;
 	immortalwrt/immortalwrt)
@@ -113,6 +113,7 @@ Fw_MFormat=${Fw_MFormat}
 FEEDS_CONF=${WORK}/feeds.conf.default
 Author_URL=${Author_URL}
 ENV_FILE=${GITHUB_ENV}
+
 EOF
 	source ${GITHUB_ENV}
 	echo -e "### VARIABLE LIST ###\n$(cat ${GITHUB_ENV})\n"
@@ -460,39 +461,10 @@ AddPackage() {
 			REPO_BRANCH=master
 		fi
 		PKG_URL="$(echo ${REPO_URL}/${PKG_NAME} | sed s/[[:space:]]//g)"
-		git clone -b ${REPO_BRANCH} ${PKG_URL} ${PKG_NAME} > /dev/null 2>&1 || true
+		git clone -b ${REPO_BRANCH} ${PKG_URL} ${PKG_NAME} > /dev/null 2>&1
 	;;
 	svn)
-		_svn_base="${REPO_URL#https://github.com/}"
-		_svn_owner=$(echo "${_svn_base}" | cut -d'/' -f1)
-		_svn_repo=$(echo "${_svn_base}" | cut -d'/' -f2)
-		_svn_ref=$(echo "${_svn_base}" | cut -d'/' -f3)
-		if [[ "${_svn_ref}" == "branches" ]]; then
-			_svn_branch=$(echo "${_svn_base}" | cut -d'/' -f4)
-			_svn_subdir=$(echo "${_svn_base}" | cut -d'/' -f5-)
-		elif [[ "${_svn_ref}" == "trunk" ]]; then
-			_svn_branch="master"
-			_svn_subdir=$(echo "${_svn_base}" | cut -d'/' -f4-)
-		else
-			_svn_branch="master"
-			_svn_subdir=$(echo "${_svn_base}" | cut -d'/' -f3-)
-		fi
-		_svn_git="https://github.com/${_svn_owner}/${_svn_repo}"
-		if [[ -n "${_svn_subdir}" && "${_svn_subdir}" != "${_svn_base}" ]]; then
-			_svn_path="${_svn_subdir}/${PKG_NAME}"
-		else
-			_svn_path="${PKG_NAME}"
-		fi
-		_svn_tmp=".tmp_${PKG_NAME}_$$"
-		git clone --depth=1 --filter=blob:none --sparse -b "${_svn_branch}" \
-			"${_svn_git}" "${_svn_tmp}" > /dev/null 2>&1 || true
-		if [[ -d "${_svn_tmp}/.git" ]]; then
-			(cd "${_svn_tmp}" && git sparse-checkout set "${_svn_path}" > /dev/null 2>&1)
-			if [[ -d "${_svn_tmp}/${_svn_path}" ]]; then
-				cp -r "${_svn_tmp}/${_svn_path}" "${PKG_NAME}"
-			fi
-			rm -rf "${_svn_tmp}"
-		fi
+		svn checkout ${REPO_URL}/${PKG_NAME} ${PKG_NAME} > /dev/null 2>&1
 	;;
 	esac
 	if [[ -f ${PKG_NAME}/Makefile || -n $(ls -A ${PKG_NAME}) ]]
