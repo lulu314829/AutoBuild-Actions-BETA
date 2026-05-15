@@ -63,7 +63,7 @@ EOF
 		done ; unset i
 
 		rm -r ${FEEDS_LUCI}/luci-theme-argon*
-		AddPackage git themes luci-theme-argon jerrykuku 18.06
+		AddPackage git themes luci-theme-argon jerrykuku js
 		AddPackage svn apps minieap immortalwrt/packages/branches/openwrt-18.06/net
 		AddPackage svn other luci-app-openclash vernesong/OpenClash/branches/dev
 		AddPackage git lean luci-app-argon-config jerrykuku master
