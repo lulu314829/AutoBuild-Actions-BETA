@@ -463,7 +463,36 @@ AddPackage() {
 		git clone -b ${REPO_BRANCH} ${PKG_URL} ${PKG_NAME} > /dev/null 2>&1 || true
 	;;
 	svn)
-		svn checkout ${REPO_URL}/${PKG_NAME} ${PKG_NAME} > /dev/null 2>&1 || true
+		_svn_base="${REPO_URL#https://github.com/}"
+		_svn_owner=$(echo "${_svn_base}" | cut -d'/' -f1)
+		_svn_repo=$(echo "${_svn_base}" | cut -d'/' -f2)
+		_svn_ref=$(echo "${_svn_base}" | cut -d'/' -f3)
+		if [[ "${_svn_ref}" == "branches" ]]; then
+			_svn_branch=$(echo "${_svn_base}" | cut -d'/' -f4)
+			_svn_subdir=$(echo "${_svn_base}" | cut -d'/' -f5-)
+		elif [[ "${_svn_ref}" == "trunk" ]]; then
+			_svn_branch="master"
+			_svn_subdir=$(echo "${_svn_base}" | cut -d'/' -f4-)
+		else
+			_svn_branch="master"
+			_svn_subdir=$(echo "${_svn_base}" | cut -d'/' -f3-)
+		fi
+		_svn_git="https://github.com/${_svn_owner}/${_svn_repo}"
+		if [[ -n "${_svn_subdir}" && "${_svn_subdir}" != "${_svn_base}" ]]; then
+			_svn_path="${_svn_subdir}/${PKG_NAME}"
+		else
+			_svn_path="${PKG_NAME}"
+		fi
+		_svn_tmp=".tmp_${PKG_NAME}_$$"
+		git clone --depth=1 --filter=blob:none --sparse -b "${_svn_branch}" \
+			"${_svn_git}" "${_svn_tmp}" > /dev/null 2>&1 || true
+		if [[ -d "${_svn_tmp}/.git" ]]; then
+			(cd "${_svn_tmp}" && git sparse-checkout set "${_svn_path}" > /dev/null 2>&1)
+			if [[ -d "${_svn_tmp}/${_svn_path}" ]]; then
+				cp -r "${_svn_tmp}/${_svn_path}" "${PKG_NAME}"
+			fi
+			rm -rf "${_svn_tmp}"
+		fi
 	;;
 	esac
 	if [[ -f ${PKG_NAME}/Makefile || -n $(ls -A ${PKG_NAME}) ]]
