@@ -498,3 +498,45 @@ Copy() {
 	fi
 	[[ $? == 0 ]] && ECHO "Done"
 }
+
+ClashDL() {
+	local ARCH="$1"
+	local CORE_TYPE="$2"
+	local CORE_DIR="${WORK}/package/base-files/files/etc/openclash/core"
+	local CORE_NAME="clash_meta"
+	local DOWNLOAD_URL="https://github.com/MetaCubeX/mihomo/releases/latest/download/mihomo-linux-${ARCH}.gz"
+	
+	ECHO "ClashDL: Downloading Clash ${CORE_TYPE} core for ${ARCH} ..."
+	mkdir -p "${CORE_DIR}"
+	
+	if [[ "${CORE_TYPE}" == "meta" ]]; then
+		wget -q "${DOWNLOAD_URL}" -O /tmp/clash_core.gz
+		if [[ $? -eq 0 ]]; then
+			gunzip -f /tmp/clash_core.gz
+			mv -f /tmp/clash_core "${CORE_DIR}/${CORE_NAME}"
+			chmod +x "${CORE_DIR}/${CORE_NAME}"
+			ECHO "ClashDL: Clash Meta core downloaded to ${CORE_DIR}/${CORE_NAME}"
+			ECHO "ClashDL: Core size: $(ls -lh ${CORE_DIR}/${CORE_NAME} | awk '{print $5}')"
+		else
+			ECHO "ClashDL: Failed to download Clash core!"
+			return 1
+		fi
+	elif [[ "${CORE_TYPE}" == "tun" ]]; then
+		DOWNLOAD_URL="https://github.com/Dreamacro/clash/releases/latest/download/clash-linux-${ARCH}.gz"
+		CORE_NAME="clash_tun"
+		wget -q "${DOWNLOAD_URL}" -O /tmp/clash_core.gz
+		if [[ $? -eq 0 ]]; then
+			gunzip -f /tmp/clash_core.gz
+			mv -f /tmp/clash_core "${CORE_DIR}/${CORE_NAME}"
+			chmod +x "${CORE_DIR}/${CORE_NAME}"
+			ECHO "ClashDL: Clash TUN core downloaded to ${CORE_DIR}/${CORE_NAME}"
+		else
+			ECHO "ClashDL: Failed to download Clash core!"
+			return 1
+		fi
+	else
+		ECHO "ClashDL: Unknown core type: ${CORE_TYPE}"
+		return 1
+	fi
+	return 0
+}

@@ -62,14 +62,13 @@ EOF
 			sed -i 's/..\/..\//\$\(TOPDIR\)\/feeds\/luci\//g' ${WORK}/package/apps/luci-app-${i}/Makefile
 		done ; unset i
 
-		rm -r ${FEEDS_LUCI}/luci-theme-argon*
-		AddPackage git themes luci-theme-argon jerrykuku 18.06
+		rm -rf ${FEEDS_LUCI}/luci-theme-argon
+		rm -rf ${FEEDS_LUCI}/luci-theme-neobird
 		AddPackage svn apps minieap immortalwrt/packages/branches/openwrt-18.06/net
 		AddPackage svn other luci-app-openclash vernesong/OpenClash/branches/dev
 		AddPackage git lean luci-app-argon-config jerrykuku master
 		AddPackage git other luci-app-ikoolproxy iwrt main
 		AddPackage git other helloworld fw876 master
-		AddPackage git themes luci-theme-neobird thinktip main
 		AddPackage git other luci-app-smartdns pymumu lede
 
 		case "${TARGET_BOARD}" in
@@ -82,6 +81,25 @@ EOF
 		case "${TARGET_PROFILE}" in
 		d-team_newifi-d2)
 			Copy ${CustomFiles}/${TARGET_PROFILE}_system ${BASE_FILES}/etc/config system
+			
+			ECHO "Embedding Clash Meta core for ${TARGET_PROFILE} ..."
+			ClashDL mipsle-softfloat meta || { ECHO "FATAL: Failed to download Clash Meta core!"; exit 1; }
+			
+			ECHO "Creating OpenClash uci-defaults script ..."
+			mkdir -p ${BASE_FILES}/etc/uci-defaults
+			cat > ${BASE_FILES}/etc/uci-defaults/99-openclash-settings << 'EOF'
+#!/bin/sh
+uci -q get openclash.config >/dev/null 2>&1 && {
+	uci set openclash.config.core_version='linux-mipsle-softfloat'
+	uci set openclash.config.release_branch='master'
+	uci set openclash.config.proxy_mode='redir-host'
+	uci set openclash.config.intranet_allowed='1'
+	uci commit openclash
+}
+exit 0
+EOF
+			chmod 755 ${BASE_FILES}/etc/uci-defaults/99-openclash-settings
+			ECHO "OpenClash configuration done for ${TARGET_PROFILE}"
 		;;
 		x86_64)
 			Copy ${CustomFiles}/Depends/cpuset ${BASE_FILES}/bin
